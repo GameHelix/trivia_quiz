@@ -4,6 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import psycopg2
+from sqlalchemy import create_engine
 from fastapi import FastAPI
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
@@ -40,7 +41,16 @@ app = FastAPI()
 
 def get_db_connection():
     """Creates a connection to the PostgreSQL database"""
-    return psycopg2.connect(**db_params)
+    try:
+        return psycopg2.connect(**db_params)
+    except Exception as e:
+        logger.error(f"Database connection error: {e}")
+        return None
+
+def get_sqlalchemy_engine():
+    """Creates SQLAlchemy engine for pandas operations"""
+    connection_string = f"postgresql://{db_params['user']}:{db_params['password']}@{db_params['host']}:{db_params['port']}/{db_params['dbname']}"
+    return create_engine(connection_string)
 
 # ==================== FastAPI ENDPOINTS ====================
 
@@ -51,11 +61,14 @@ async def root():
 @app.get("/attendance")
 async def get_attendance():
     """Fetch attendance data from the database"""
-    conn = get_db_connection()
-    attendance_query = 'SELECT "Date", "Department", "Employee", "Entry", "Exit" FROM icta.attendance;'
-    attendance_df = pd.read_sql(attendance_query, conn)
-    conn.close()
-    return attendance_df.to_dict(orient='records')
+    try:
+        engine = get_sqlalchemy_engine()
+        attendance_query = 'SELECT "Date", "Department", "Employee", "Entry", "Exit" FROM icta.attendance;'
+        attendance_df = pd.read_sql(attendance_query, engine)
+        return attendance_df.to_dict(orient='records')
+    except Exception as e:
+        logger.error(f"Error fetching attendance data: {e}")
+        return {"error": "Failed to fetch attendance data"}
 
 @app.get("/holiday")
 async def get_holiday():
