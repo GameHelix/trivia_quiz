@@ -178,7 +178,26 @@ def fetch_data_from_db(table_name):
 
 # Start command
 async def start(update: Update, context) -> None:
-    await update.message.reply_text('Welcome to the ICTA Analytics Bot! Use /attendance, /holiday, or /analytics to get insights.')
+    welcome_msg = """🎯 **Welcome to ICTA Analytics Bot!**
+
+📊 **Available Commands:**
+• `/analytics` - Generate visual charts
+• `/attendance` - View attendance data
+• `/holiday` - View holiday data
+• `/ai` - Learn about AI analysis features
+
+🤖 **AI-Powered Analysis:**
+Just ask me anything about employee data in plain English!
+
+**Try asking:**
+• "Which employee has the most overtime?"
+• "Compare IT and Marketing departments"
+• "Who deserves bonuses this month?"
+• "Show me attendance trends"
+
+I'll analyze your data using Google Gemini AI! 🚀"""
+    
+    await update.message.reply_text(welcome_msg)
 
 # Attendance command
 async def attendance(update: Update, context) -> None:
@@ -195,6 +214,42 @@ async def holiday(update: Update, context) -> None:
         await update.message.reply_text(f"Holiday Data:\n{holiday_df.head()}")
     else:
         await update.message.reply_text("No holiday data found.")
+
+# AI command to explain AI features
+async def ai_help(update: Update, context) -> None:
+    ai_help_msg = """🤖 **AI Analysis Features**
+
+🧠 **Powered by Google Gemini AI**
+I can analyze your employee data and provide intelligent insights!
+
+📈 **What I can analyze:**
+• Employee performance comparisons
+• Overtime and delay trends
+• Department productivity metrics
+• Fine and bonus calculations
+• Attendance patterns
+• Monthly performance summaries
+
+💬 **How to use:**
+Just type your question in plain English! No special commands needed.
+
+🔥 **Example Questions:**
+• "Which employee worked the most overtime in August?"
+• "Compare performance between IT and Marketing"
+• "Who should receive performance bonuses?"
+• "What are the main attendance issues?"
+• "Show me Aynur's performance trends"
+• "Which department has better attendance?"
+
+📊 **Your Data:**
+• 246 attendance records
+• 12 monthly performance summaries
+• Real-time calculations for fines & bonuses
+• Multi-department analysis
+
+Just ask anything about your employee data! 🚀"""
+    
+    await update.message.reply_text(ai_help_msg)
 
 # Analytics command with chart functionality for monthly evaluation
 async def analytics(update: Update, context) -> None:
@@ -372,11 +427,11 @@ async def gemini_query(update: Update, context) -> None:
     
     # Check for common greetings or simple queries
     simple_responses = {
-        "hi": "Hello! 👋 I'm your ICTA Analytics Assistant. Ask me about employee performance, overtime, delays, or use /analytics for charts!",
-        "hello": "Hi there! 👋 I can help you analyze employee data. Try asking about overtime trends or department performance!",
-        "help": "I can help you analyze employee data! Try these:\n• 'Which employee has the most overtime?'\n• 'Show IT department performance'\n• 'Compare departments'\n• Use /analytics for visual charts",
-        "thanks": "You're welcome! 😊 Feel free to ask more questions about the employee data!",
-        "thank you": "Happy to help! 😊 Ask me anything about employee performance or use /analytics for detailed charts."
+        "hi": "Hello! 👋 I'm your ICTA Analytics Assistant powered by Gemini AI! Ask me about employee performance, overtime, delays, or use /analytics for charts!",
+        "hello": "Hi there! 👋 I can analyze your employee data using AI. Try asking about overtime trends or department performance!",
+        "help": "🤖 **I can analyze your employee data using Gemini AI!**\n\n💬 **Try asking:**\n• 'Which employee has the most overtime?'\n• 'Compare IT and Marketing departments'\n• 'Who deserves bonuses this month?'\n\n📊 **Commands:**\n• `/ai` - Learn about AI features\n• `/analytics` - Visual charts",
+        "thanks": "You're welcome! 😊 Feel free to ask more AI-powered questions about the employee data!",
+        "thank you": "Happy to help! 😊 Ask me anything about employee performance - I'll analyze it with AI! Use /ai to learn more."
     }
     
     # Check for simple responses first
@@ -454,6 +509,7 @@ def setup_telegram_bot():
     telegram_app.add_handler(CommandHandler("attendance", attendance))
     telegram_app.add_handler(CommandHandler("holiday", holiday))
     telegram_app.add_handler(CommandHandler("analytics", analytics))
+    telegram_app.add_handler(CommandHandler("ai", ai_help))
     telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, gemini_query))
     
     # Add error handler for bot conflicts
