@@ -288,27 +288,96 @@ async def analytics(update: Update, context) -> None:
     except Exception as e:
         await update.message.reply_text(f"Error generating charts: {str(e)}")
 
-# Gemini response generation function using monthly_data
+# Enhanced Gemini response generation function
 def generate_gemini_response(user_query, monthly_data):
+    # Create a more detailed prompt for better AI responses
     prompt = f"""
-    You are a data analyst assistant. Below is some monthly analytical data regarding employee overtime, delays, fines, and bonuses:
+    You are an expert data analyst for ICTA company. You have access to employee performance data.
+    
+    EMPLOYEE DATA SUMMARY:
     {monthly_data.to_string(index=False)}
     
-    Based on this data, answer the following question:
-    {user_query}
+    DATA EXPLANATION:
+    - Employee: Employee name
+    - Department: IT or Marketing
+    - Month: Time period (2024-07, 2024-08, 2024-09)
+    - Delay: Hours employee was late/absent (penalty metric)
+    - Overtime: Extra hours worked beyond 8-hour standard (bonus metric)
+    - Fine: Penalty rate (0.02 = 2%, 0.03 = 3%, 0.05 = 5%)
+    - Bonus: Reward rate based on overtime performance
+    
+    FINE STRUCTURE:
+    - Delay > 3 hours: 2% fine
+    - Delay > 10 hours: 3% fine  
+    - Delay > 20 hours: 5% fine
+    
+    BONUS STRUCTURE:
+    - Overtime > 3 hours: 2% bonus
+    - Overtime > 10 hours: 3% bonus
+    - Overtime > 20 hours: 5% bonus
+    
+    USER QUESTION: {user_query}
+    
+    Please provide a detailed, professional analysis in a conversational tone. Include specific numbers, trends, and actionable insights. Keep your response concise but informative (2-3 paragraphs maximum).
     """
     
     try:
-        # Call Gemini API
+        # Call Gemini API with enhanced configuration
         model = genai.GenerativeModel('gemini-pro')
-        response = model.generate_content(prompt)
+        
+        generation_config = genai.types.GenerationConfig(
+            temperature=0.3,  # Lower temperature for more factual responses
+            max_output_tokens=500,  # Reasonable length for Telegram
+            top_p=0.8,
+        )
+        
+        response = model.generate_content(
+            prompt,
+            generation_config=generation_config
+        )
+        
         return response.text.strip()
+        
     except Exception as e:
-        return f"Error generating response from Gemini: {str(e)}"
+        logger.error(f"Gemini API error: {e}")
+        # Fallback response with basic data summary
+        total_employees = monthly_data['Employee'].nunique()
+        avg_overtime = monthly_data['Overtime'].mean()
+        avg_delay = monthly_data['Delay'].mean()
+        
+        return f"""I'm having trouble connecting to AI services right now, but here's a quick summary of your data:
+        
+📊 **Quick Stats:**
+• Total Employees: {total_employees}
+• Average Overtime: {avg_overtime:.1f} hours/month
+• Average Delays: {avg_delay:.1f} hours/month
 
-# New Gemini query handler using monthly_data
+Your question: "{user_query}"
+
+Please try again in a moment, or use /analytics for detailed charts."""
+
+# Enhanced Gemini query handler with better UX
 async def gemini_query(update: Update, context) -> None:
-    user_query = update.message.text  # Get the user's query
+    user_query = update.message.text.strip()
+    
+    # Send "typing" action to show bot is processing
+    await update.message.chat.send_action(action="typing")
+    
+    # Check for common greetings or simple queries
+    simple_responses = {
+        "hi": "Hello! 👋 I'm your ICTA Analytics Assistant. Ask me about employee performance, overtime, delays, or use /analytics for charts!",
+        "hello": "Hi there! 👋 I can help you analyze employee data. Try asking about overtime trends or department performance!",
+        "help": "I can help you analyze employee data! Try these:\n• 'Which employee has the most overtime?'\n• 'Show IT department performance'\n• 'Compare departments'\n• Use /analytics for visual charts",
+        "thanks": "You're welcome! 😊 Feel free to ask more questions about the employee data!",
+        "thank you": "Happy to help! 😊 Ask me anything about employee performance or use /analytics for detailed charts."
+    }
+    
+    # Check for simple responses first
+    query_lower = user_query.lower()
+    for key, response in simple_responses.items():
+        if key in query_lower:
+            await update.message.reply_text(response)
+            return
     
     # Fetch data for analytics
     attendance_df = fetch_data_from_db("attendance")
@@ -316,11 +385,14 @@ async def gemini_query(update: Update, context) -> None:
     permission_df = fetch_data_from_db("permission")
 
     if attendance_df.empty:
-        await update.message.reply_text("No data available for analysis.")
+        await update.message.reply_text("❌ No data available for analysis. Please contact the administrator.")
         return
 
     # Calculate monthly data like in the analytics function (simplified version)
     try:
+        # Show that we're processing data
+        processing_msg = await update.message.reply_text("🔍 Analyzing employee data...")
+        
         attendance_df['Entry'] = pd.to_datetime(attendance_df['Entry'], format='%H:%M')
         attendance_df['Exit'] = pd.to_datetime(attendance_df['Exit'], format='%H:%M')
         attendance_df['Work_Hours'] = (attendance_df['Exit'] - attendance_df['Entry']).dt.total_seconds() / 3600
@@ -347,14 +419,19 @@ async def gemini_query(update: Update, context) -> None:
         monthly_data.loc[monthly_data['Overtime'] > 10, 'Bonus'] = 0.03
         monthly_data.loc[monthly_data['Overtime'] > 20, 'Bonus'] = 0.05
 
+        # Update processing message
+        await processing_msg.edit_text("🤖 Generating AI analysis...")
+
         # Generate a response using Gemini based on the monthly_data
         gemini_response = generate_gemini_response(user_query, monthly_data)
 
-        # Send the Gemini-generated response back to the user
-        await update.message.reply_text(gemini_response)
+        # Delete processing message and send final response
+        await processing_msg.delete()
+        await update.message.reply_text(f"🤖 **AI Analysis:**\n\n{gemini_response}")
         
     except Exception as e:
-        await update.message.reply_text(f"Error processing your query: {str(e)}")
+        logger.error(f"Error in gemini_query: {e}")
+        await update.message.reply_text(f"❌ Error processing your query: {str(e)}\n\nTry using /analytics for visual charts instead!")
 
 # ==================== TELEGRAM BOT SETUP ====================
 
