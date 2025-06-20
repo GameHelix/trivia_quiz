@@ -74,7 +74,7 @@ Multi-channel Delivery (Dashboard, Bot, API)
 
 ### 1. Clone & Setup
 ```bash
-git clone <repository-url>
+git clone https://github.com/Ismat-Samadov/ICTA_DataAnalyst
 cd ICTA_DataAnalyst
 
 # Create virtual environment
