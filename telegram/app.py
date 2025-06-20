@@ -54,8 +54,13 @@ async def lifespan(app: FastAPI):
     # Shutdown
     global telegram_app
     if telegram_app:
-        await telegram_app.stop()
-        await telegram_app.shutdown()
+        logger.info("Shutting down Telegram bot...")
+        try:
+            await telegram_app.stop()
+            await telegram_app.shutdown()
+            logger.info("Telegram bot shut down successfully")
+        except Exception as e:
+            logger.error(f"Error shutting down Telegram bot: {e}")
     logger.info("Application shut down successfully!")
 
 # Initialize FastAPI app
@@ -516,6 +521,10 @@ async def setup_webhook():
     try:
         setup_telegram_bot()
         
+        # Initialize the application properly for webhook mode
+        await telegram_app.initialize()
+        logger.info("Telegram application initialized for webhook mode")
+        
         # Force clear any existing sessions
         logger.info("Force clearing any existing bot sessions...")
         await telegram_app.bot.delete_webhook(drop_pending_updates=True)
@@ -532,6 +541,10 @@ async def setup_webhook():
             max_connections=1  # Limit connections to prevent conflicts
         )
         logger.info(f"Webhook successfully set to: {webhook_url}")
+        
+        # Start the application for processing updates
+        await telegram_app.start()
+        logger.info("Telegram application started for webhook processing")
         
         # Test webhook
         webhook_info = await telegram_app.bot.get_webhook_info()
