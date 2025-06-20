@@ -56,7 +56,9 @@ async def lifespan(app: FastAPI):
     if telegram_app:
         logger.info("Shutting down Telegram bot...")
         try:
-            await telegram_app.stop()
+            # Check if app is running before stopping
+            if hasattr(telegram_app, '_running') and telegram_app._running:
+                await telegram_app.stop()
             await telegram_app.shutdown()
             logger.info("Telegram bot shut down successfully")
         except Exception as e:
